@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/willi-kappler/panolution"
 exclude = ["*.png", "example", "target"]
 keywords = ["stitch", "photo", "image", "evolutionary", "genetic"]
-categories = ["algorithms", "multimedia"]
+categories = ["algorithms", "multimedia::images"]
 
 #[badges]
 #travis-ci = {repository = "https://travis-ci.org/willi-kappler/panolution"}
@@ -22,6 +22,15 @@ serde_derive = "1.0"
 log = "0.3"
 simplelog = "0.4"
 chrono = "0.4"
+
+# Crates to consider:
+# https://github.com/abonander/img_hash
+# https://docs.rs/imageproc/0.9.0/imageproc/
+# https://docs.rs/raster/0.2.0/raster/
+# https://github.com/PistonDevelopers/resize
+# https://github.com/meh/rust-picto
+# https://github.com/warricksothr/Perceptual-Image-Hashing/
+#
 
 [profile.release]
 lto = true
