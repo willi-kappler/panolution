@@ -11,7 +11,8 @@ use std::io::Read;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Configuration {
     pub input_path: String,
-
+    pub max_iteration: u64,
+    pub work_sizes: Vec<u64>,
 }
 
 #[derive(Deserialize)]
@@ -22,6 +23,8 @@ struct TOMLConfig {
 fn default_config() -> Configuration {
     Configuration {
         input_path: "./".to_string(),
+        max_iteration: 10000,
+        work_sizes: vec![64, 256],
     }
 }
 
