@@ -9,7 +9,7 @@ use std::io::Read;
 //use std::cmp;
 
 // Internal modules
-use error::{ErrorKind, Result, ResultExt};
+use error::{Error, ErrorKind, Result, ResultExt};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Configuration {
@@ -78,9 +78,18 @@ pub fn create_config() -> Configuration {
             Ok(config) => {
                 info!("Configuration successfully loaded")
             },
-            Err(e) => {
-                warn!("Could not load configuration file: '{}', reason: {}", config_file, e)
-            }
+            Err(Error(ErrorKind::IOOpenError, _)) => {
+                warn!("Could not open configuration file '{}'", config_file)
+            },
+            Err(Error(ErrorKind::IOReadError, _)) => {
+                warn!("Could not read configuration file '{}'", config_file)
+            },
+            Err(Error(ErrorKind::TOMLError, _)) => {
+                warn!("Could not parse configuration file '{}', TOML error", config_file)
+            },
+            Err(Error(ErrorKind::Msg(m), _)) => {
+                warn!("Some other error occured: {}", m)
+            },
         }
     }
 
