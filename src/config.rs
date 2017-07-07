@@ -12,7 +12,7 @@ use std::io::Read;
 pub struct Configuration {
     pub input_path: String,
     pub max_iteration: u64,
-    pub work_sizes: Vec<u64>,
+    pub scale_factors: Vec<f64>,
 }
 
 #[derive(Deserialize)]
@@ -148,6 +148,8 @@ input_path = "scans"
 
         let expected_output = Configuration{
             input_path: "scans".to_string(),
+            max_iteration: 10000,
+            scale_factors: vec![0.1, 0.3],
         };
 
         assert_eq!(parse_config_file(input), expected_output);
