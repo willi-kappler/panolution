@@ -17,14 +17,15 @@ pub struct Configuration {
 
 #[derive(Deserialize)]
 struct TOMLConfig {
-    input_path: Option<String>
+    input_path: Option<String>,
+    max_iteration: Option<u64>,
 }
 
 fn default_config() -> Configuration {
     Configuration {
         input_path: "./".to_string(),
         max_iteration: 10000,
-        work_sizes: vec![64, 256],
+        scale_factors: vec![0.1, 0.3],
     }
 }
 
@@ -38,6 +39,18 @@ pub fn create_config() -> Configuration {
             .long("config")
             .value_name("FILE")
             .help("Sets a configuration file, command line arguments can overwrite values from the config file")
+            .takes_value(true))
+        .arg(Arg::with_name("max_iteration")
+            .short("m")
+            .long("max-iteration")
+            .value_name("MAX_ITERATION")
+            .help("Sets the maximum number of iteration for each size step")
+            .takes_value(true))
+        .arg(Arg::with_name("scale_factors")
+            .short("s")
+            .long("scale-factors")
+            .value_name("SCALE_FACTORS")
+            .help("Sets the scale factor to use for arranging images")
             .takes_value(true))
         .arg(Arg::with_name("input")
             .help("Sets the input file or folder, default is current folder './'")
