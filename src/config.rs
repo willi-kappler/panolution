@@ -1,5 +1,5 @@
 // External modules
-use clap::{Arg, App};
+use clap::{Arg, App, ArgMatches};
 use toml;
 
 // System modules
@@ -9,10 +9,18 @@ use std::io::Read;
 //use std::cmp;
 
 // Internal modules
-use error::{Error, ErrorKind, Result, ResultExt};
+use error::{Result, ResultExt};
+
+macro_rules! assign_if{
+    ($left:expr, $right:expr) => {
+        if let Some(value) = $right {
+            $left = value;
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Configuration {
+pub struct PanolutionConfig {
     pub input_path: String,
     pub max_iteration: u64,
     pub scale_factors: Vec<f64>,
@@ -22,17 +30,18 @@ pub struct Configuration {
 struct TOMLConfig {
     input_path: Option<String>,
     max_iteration: Option<u64>,
+    scale_factors: Option<Vec<f64>>,
 }
 
-fn default_config() -> Configuration {
-    Configuration {
+fn default_config() -> PanolutionConfig {
+    PanolutionConfig {
         input_path: "./".to_string(),
         max_iteration: 10000,
         scale_factors: vec![0.1, 0.3],
     }
 }
 
-pub fn create_config() -> Configuration {
+pub fn create_config() -> PanolutionConfig {
     let version = "0.1";
 
     let matches = App::new("Panolution")
@@ -41,7 +50,7 @@ pub fn create_config() -> Configuration {
             .short("c")
             .long("config")
             .value_name("FILE")
-            .help("Sets a configuration file, command line arguments can overwrite values from the config file")
+            .help("Sets a PanolutionConfig file, command line arguments can overwrite values from the config file")
             .takes_value(true))
         .arg(Arg::with_name("max_iteration")
             .short("m")
@@ -70,52 +79,72 @@ pub fn create_config() -> Configuration {
         )
         .get_matches();
 
-    // Default values:
+    match process_config(matches) {
+        Ok(config) => {
+            config
+        },
+        Err(e) => {
+            warn!("An error occured: '{}'", e);
+
+            for e in e.iter().skip(1) {
+                warn!("Caused by '{}'", e)
+            }
+
+            info!("Using default configuration");
+
+            default_config()
+        }
+    }
+}
+
+fn process_config(matches: ArgMatches) -> Result<PanolutionConfig> {
+    // Default values, these will be overwritten if needed:
     let mut result = default_config();
 
     if let Some(config_file) = matches.value_of("config") {
-        match load_config(config_file) {
-            Ok(config) => {
-                info!("Configuration successfully loaded")
-            },
-            Err(Error(ErrorKind::IOOpenError, _)) => {
-                warn!("Could not open configuration file '{}'", config_file)
-            },
-            Err(Error(ErrorKind::IOReadError, _)) => {
-                warn!("Could not read configuration file '{}'", config_file)
-            },
-            Err(Error(ErrorKind::TOMLError, _)) => {
-                warn!("Could not parse configuration file '{}', TOML error", config_file)
-            },
-            Err(Error(ErrorKind::Msg(m), _)) => {
-                warn!("Some other error occured: {}", m)
-            },
-        }
+        let toml_config = load_config(config_file)?;
+
+        assign_if!(result.input_path, toml_config.input_path);
+        assign_if!(result.max_iteration, toml_config.max_iteration);
+        assign_if!(result.scale_factors, toml_config.scale_factors);
     }
 
-    // Command line parameter can overwrite configuration file settings
+    // Command line parameter can overwrite PanolutionConfig file settings:
+
     if let Some(input_path) = matches.value_of("input") {
         result.input_path = input_path.to_string();
-        info!("input path: {}", input_path);
     }
 
-    result
+    if let Some(max_iteration) = matches.value_of("max_iteration") {
+        result.max_iteration = max_iteration.parse::<u64>().chain_err(|| format!("can't parse command line integer value: '{}'", max_iteration))?;
+    }
+
+    if let Some(scale_factors) = matches.value_of("scale_factors") {
+        let mut values = Vec::new();
+
+        for value in scale_factors.split(",") {
+            values.push(value.parse::<f64>().chain_err(|| format!("can't parse command line floating point values: '{}' -> '{}", scale_factors, value))?);
+        }
+        result.scale_factors = values;
+    }
+
+    Ok(result)
 }
 
 fn load_config(filename: &str) -> Result<TOMLConfig> {
-    info!("Loading configuration file: {}", filename);
+    info!("Loading PanolutionConfig file: {}", filename);
 
-    let file = OpenOptions::new().read(true).open(filename).chain_err(|| ErrorKind::IOOpenError)?;
+    let file = OpenOptions::new().read(true).open(filename).chain_err(|| format!("can't open file: '{}'", filename))?;
     let mut buf_reader = BufReader::new(file);
     let mut content = String::new();
 
-    buf_reader.read_to_string(&mut content).chain_err(|| ErrorKind::IOReadError)?;
-    toml::from_str::<TOMLConfig>(&content).chain_err(|| ErrorKind::TOMLError)
+    buf_reader.read_to_string(&mut content).chain_err(|| "can't read to buffer")?;
+    toml::from_str::<TOMLConfig>(&content).chain_err(|| "can't parse TOML file")
 }
 
 #[cfg(test)]
 mod test {
-    use super::{default_config, Configuration};
+    use super::{default_config, PanolutionConfig};
 
     use logger::create_logger;
 
