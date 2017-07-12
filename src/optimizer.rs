@@ -1,5 +1,7 @@
 // External modules:
 use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
+use image;
+use image::{GenericImage, FilterType};
 
 // Internal modules:
 use config::PanolutionConfig;
@@ -11,9 +13,18 @@ pub struct ImageArrangement {
     rotation: f64,
 }
 
+pub struct Solution {
+    arrangement: Vec<ImageArrangement>,
+}
+
+fn run_darwin(arrangement: Vec<ImageArrangement>, max_iteration: u64) -> Vec<ImageArrangement> {
+    arrangement
+}
+
 pub fn optimize(arrangement: Option<&Vec<ImageArrangement>>, config: &PanolutionConfig, thumbnail_path: &Vec<String>) -> Vec<ImageArrangement> {
     let mut result = Vec::new();
 
+    // Prepare data
     if let Some(arrangement) = arrangement {
         result = arrangement.iter().zip(thumbnail_path).map(|(arrangement, path)| ImageArrangement {
                 file_name: path.clone(),
@@ -32,5 +43,5 @@ pub fn optimize(arrangement: Option<&Vec<ImageArrangement>>, config: &Panolution
         ).collect();
     }
 
-    result
+    run_darwin(result, config.max_iteration)
 }
