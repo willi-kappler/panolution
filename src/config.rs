@@ -131,21 +131,13 @@ fn process_config(matches: ArgMatches) -> Result<PanolutionConfig> {
     Ok(result)
 }
 
-fn load_config(filename: &str) -> Result<TOMLConfig> {
-    info!("Loading PanolutionConfig file: {}", filename);
+fn load_config(file_name: &str) -> Result<TOMLConfig> {
+    info!("Loading PanolutionConfig file: {}", file_name);
 
-    let file = OpenOptions::new().read(true).open(filename).chain_err(|| format!("can't open file: '{}'", filename))?;
+    let file = OpenOptions::new().read(true).open(file_name).chain_err(|| format!("can't open file: '{}'", file_name))?;
     let mut buf_reader = BufReader::new(file);
     let mut content = String::new();
 
     buf_reader.read_to_string(&mut content).chain_err(|| "can't read to buffer")?;
     toml::from_str::<TOMLConfig>(&content).chain_err(|| "can't parse TOML file")
-}
-
-#[cfg(test)]
-mod test {
-    use super::{default_config, PanolutionConfig};
-
-    use logger::create_logger;
-
 }

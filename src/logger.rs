@@ -8,7 +8,7 @@ use std::fs::OpenOptions;
 
 pub fn create_logger() {
     let dt = Local::now();
-    let log_filename = dt.format("panolution_%Y_%m_%d.log").to_string();
+    let log_file_name = dt.format("panolution_%Y_%m_%d.log").to_string();
 
     let log_config = Config{
         time: Some(LogLevel::Warn),
@@ -17,12 +17,12 @@ pub fn create_logger() {
         location: Some(LogLevel::Warn)
     };
 
-    if let Ok(file) = OpenOptions::new().append(true).create(true).open(&log_filename) {
+    if let Ok(file) = OpenOptions::new().append(true).create(true).open(&log_file_name) {
         let _ = WriteLogger::init(LogLevelFilter::Info, log_config, file);
-        info!("Log file '{}' created succesfully", &log_filename);
+        info!("Log file '{}' created succesfully", &log_file_name);
     } else {
         // Log file could not be created, use stdout instead
         let _ = TermLogger::init(LogLevelFilter::Info, log_config);
-        warn!("Could not open log fle: '{}', using sdtout instead!", &log_filename);
+        warn!("Could not open log fle: '{}', using sdtout instead!", &log_file_name);
     }
 }

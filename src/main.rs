@@ -15,8 +15,6 @@ extern crate itertools;
 extern crate walkdir;
 extern crate image;
 
-// use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
-
 // External imports:
 use itertools::Itertools;
 
@@ -53,19 +51,27 @@ fn main() {
     info!("scale_factors: '{}'", config.scale_factors.iter().join(", "));
 
     // Create thumbnails if necessary:
-    create_thumbnails(&config);
+    match create_thumbnails(&config) {
+        Ok((all_image_paths, all_thumbnail_paths)) => {
+            // Run optimizer once for the smallest image size (scale factor):
+            let mut current_arrangement = optimize(None, &config, &all_thumbnail_paths[0]);
 
-    // Run optimizer once for the smallest image size (scale factor):
+            // Loop through all scale factors and find the optimal solution for each step
+            // Use that result as input for the next scale factor iteration
+            for thumbnail_path in all_thumbnail_paths.iter().skip(1) {
+                current_arrangement = optimize(Some(&current_arrangement), &config, &thumbnail_path);
+            }
 
-    let mut current_arrangement = optimize(None, &config, 0);
+            // Write result as big panorama image
 
-    // Loop through all scale factors and find the optimal solution for each step
-    // Use that result as input for the next scale factor iteration
-    for scale_index in 1..config.scale_factors.len() {
-        current_arrangement = optimize(Some(&current_arrangement), &config, scale_index);
+            write_image(&current_arrangement, &config, all_image_paths);
+        },
+        Err(e) => {
+            error!("An error occured: {}", e);
+
+            for e in e.iter().skip(1) {
+                error!("Caused by '{}'", e)
+            }
+        }
     }
-
-    // Write result as big panorama image
-
-    write_image(&current_arrangement, &config);
 }
