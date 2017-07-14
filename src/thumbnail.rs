@@ -44,13 +44,13 @@ pub fn create_thumbnails(config: &PanolutionConfig) -> Result<(Vec<String>, Vec<
     for scale_factor in &config.scale_factors {
         let mut thumb_paths = Vec::new();
         for full_path in &all_image_paths {
-            info!("Loading image file: '{}'", full_path);
-            let orig_img = image::open(&full_path).chain_err(|| format!("can't open image: '{}", full_path))?;
             let (base_path, file_name) = split_path(&full_path);
             let thumb_path = format!("{}/thumb_{}_{}", base_path, scale_factor, file_name);
             if Path::new(&thumb_path).exists() {
                 info!("Thumbnail was already generated, using old one: '{}'", &thumb_path)
             } else {
+                info!("Loading image file: '{}'", full_path);
+                let orig_img = image::open(&full_path).chain_err(|| format!("can't open image: '{}", full_path))?;
                 info!("No thumbnail found for scale factor '{}', generating new one", scale_factor);
                 let (orig_w, orig_h) = orig_img.dimensions();
                 let (thumb_w, thumb_h) = (((orig_w as f64) * scale_factor) as u32, ((orig_h as f64) * scale_factor) as u32);
