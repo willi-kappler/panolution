@@ -36,6 +36,8 @@ fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initia
         let pop = PopulationBuilder::<Solution>::new()
             .set_id(i + 1)
             .initial_population(&initial_population)
+            .reset_limit_end(0)
+            .increasing_mutation_rate()
             .finalize().unwrap();
 
         result.push(pop);
@@ -99,6 +101,8 @@ impl Individual for Solution {
 }
 
 fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
+    info!("Run darwin with maximum number of iterations: {}", max_iteration);
+
     let pano = SimulationBuilder::<Solution>::new()
         .iterations(max_iteration)
         .threads(4) // TODO: Make this configurable
