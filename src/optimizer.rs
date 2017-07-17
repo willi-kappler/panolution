@@ -99,13 +99,13 @@ impl Individual for Solution {
 }
 
 fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
-    let tsp = SimulationBuilder::<Solution>::new()
+    let pano = SimulationBuilder::<Solution>::new()
         .iterations(max_iteration)
         .threads(4) // TODO: Make this configurable
         .add_multiple_populations(make_all_populations(100, 8, &solution))
         .finalize();
 
-    match tsp {
+    match pano {
         Err(e) => {
             error!("An error occured");
 
@@ -115,14 +115,14 @@ fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
 
             solution
         },
-        Ok(mut tsp_simulation) => {
-            tsp_simulation.run();
+        Ok(mut pano_simulation) => {
+            pano_simulation.run();
 
-            info!("Total run time: {} ms", tsp_simulation.total_time_in_ms);
-            info!("Improvement factor: {}", tsp_simulation.simulation_result.improvement_factor);
-            info!("Number of iterations: {}", tsp_simulation.simulation_result.iteration_counter);
+            info!("Total run time: {} ms", pano_simulation.total_time_in_ms);
+            info!("Improvement factor: {}", pano_simulation.simulation_result.improvement_factor);
+            info!("Number of iterations: {}", pano_simulation.simulation_result.iteration_counter);
 
-            tsp_simulation.simulation_result.fittest[0].individual.clone()
+            pano_simulation.simulation_result.fittest[0].individual.clone()
         }
     }
 }
