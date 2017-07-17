@@ -6,7 +6,6 @@ use image::imageops::resize;
 use image::{GenericImage, FilterType};
 
 // Std modules:
-use std::fs::File;
 use std::path::Path;
 
 // Internal modules:

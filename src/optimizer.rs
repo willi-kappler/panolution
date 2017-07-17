@@ -8,16 +8,40 @@ use rand;
 // Internal modules:
 use config::PanolutionConfig;
 
+#[derive(Clone)]
 pub struct ImageArrangement {
-    file_name: String,
+    file_name: String, // TODO: Share path between individuals
+    // TODO: Add image and share it, so it doesn't have to be re-loaded every time
     pos_x: u64,
     pos_y: u64,
     rotation: f64,
     // TODO: add more image operations
 }
 
+#[derive(Clone)]
 pub struct Solution {
     arrangement: Vec<ImageArrangement>,
+}
+
+fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initial_solution: &Solution) -> Vec<Population<Solution>> {
+    let mut result = Vec::new();
+
+    let mut initial_population = Vec::new();
+
+    for _ in 0..num_of_individuals {
+        initial_population.push(initial_solution.clone());
+    }
+
+    for i in 0..num_of_populations {
+        let pop = PopulationBuilder::<Solution>::new()
+            .set_id(i + 1)
+            .initial_population(&initial_population)
+            .finalize().unwrap();
+
+        result.push(pop);
+    }
+
+    result
 }
 
 impl Individual for Solution {
@@ -74,8 +98,33 @@ impl Individual for Solution {
     }
 }
 
-fn run_darwin(solution: Solution, max_iteration: u64) -> Solution {
-    solution
+fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
+    let tsp = SimulationBuilder::<Solution>::new()
+        .iterations(max_iteration)
+        .threads(4) // TODO: Make this configurable
+        .add_multiple_populations(make_all_populations(100, 8, &solution))
+        .finalize();
+
+    match tsp {
+        Err(e) => {
+            error!("An error occured");
+
+            for e in e.iter().skip(1) {
+                error!("Caused by '{}'", e)
+            }
+
+            solution
+        },
+        Ok(mut tsp_simulation) => {
+            tsp_simulation.run();
+
+            info!("Total run time: {} ms", tsp_simulation.total_time_in_ms);
+            info!("Improvement factor: {}", tsp_simulation.simulation_result.improvement_factor);
+            info!("Number of iterations: {}", tsp_simulation.simulation_result.iteration_counter);
+
+            tsp_simulation.simulation_result.fittest[0].individual.clone()
+        }
+    }
 }
 
 pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig, thumbnail_path: &Vec<String>) -> Solution {

@@ -22,14 +22,14 @@ macro_rules! assign_if{
 #[derive(Clone, Debug, PartialEq)]
 pub struct PanolutionConfig {
     pub input_path: String,
-    pub max_iteration: u64,
+    pub max_iteration: u32,
     pub scale_factors: Vec<f64>,
 }
 
 #[derive(Deserialize)]
 struct TOMLConfig {
     input_path: Option<String>,
-    max_iteration: Option<u64>,
+    max_iteration: Option<u32>,
     scale_factors: Option<Vec<f64>>,
 }
 
@@ -116,7 +116,7 @@ fn process_config(matches: ArgMatches) -> Result<PanolutionConfig> {
     }
 
     if let Some(max_iteration) = matches.value_of("max_iteration") {
-        result.max_iteration = max_iteration.parse::<u64>().chain_err(|| format!("can't parse command line integer value: '{}'", max_iteration))?;
+        result.max_iteration = max_iteration.parse::<u32>().chain_err(|| format!("can't parse command line integer value: '{}'", max_iteration))?;
     }
 
     if let Some(scale_factors) = matches.value_of("scale_factors") {
