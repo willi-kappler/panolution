@@ -1,7 +1,7 @@
 // External modules:
 use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
 use image;
-use image::{GenericImage, FilterType};
+use image::{GenericImage, FilterType, DynamicImage};
 use rand::Rng;
 use rand;
 
@@ -12,15 +12,88 @@ use config::PanolutionConfig;
 pub struct ImageArrangement {
     file_name: String, // TODO: Share path between individuals
     // TODO: Add image and share it, so it doesn't have to be re-loaded every time
-    pos_x: u64,
-    pos_y: u64,
-    rotation: f64,
+    x: u32,
+    y: u32,
+    angle: f64,
     // TODO: add more image operations
 }
 
 #[derive(Clone)]
 pub struct Solution {
     arrangement: Vec<ImageArrangement>,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+struct Rectangle {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
+
+fn calc_intersection(x1: u32, x2: u32, y1: u32, y2: u32, w1: u32, w2: u32, h1: u32, h2: u32) -> (Rectangle, Rectangle) {
+    // rect1 and rect2 refer to positions inside the images. Not the absolute positions.
+    let mut rect1 = Rectangle{x: 0, y: 0, w: 0, h: 0};
+    let mut rect2 = Rectangle{x: 0, y: 0, w: 0, h: 0};
+
+    if x1 == x2 {
+        rect1.x = 0;
+        rect2.x = 0;
+
+        if w1 < w2 {
+            rect1.w = w1;
+            rect2.w = w1;
+        } else {
+            rect1.w = w2;
+            rect2.w = w2;
+        }
+    }
+
+    if y1 == y2 {
+        rect1.y = 0;
+        rect2.y = 0;
+
+        if h1 < h2 {
+            rect1.h = h1;
+            rect2.h = h1;
+        } else {
+            rect1.h = h2;
+            rect2.h = h2;
+        }
+    }
+
+    let dx = (x2 as i32 - x1 as i32).abs() as u32;
+    let dy = (y2 as i32 - y1 as i32).abs() as u32;
+
+    if x1 < x2 && dx < w1 {
+        rect1.x = dx;
+        rect1.w = w1 - dx;
+        rect2.x = 0;
+        rect2.w = rect1.w;
+    }
+
+    if x2 < x1 && dx < w2 {
+        rect2.x = dx;
+        rect2.w = w2 - dx;
+        rect1.x = 0;
+        rect1.w = rect2.w;
+    }
+
+    if y1 < y2 && dy < h1 {
+        rect1.y = dy;
+        rect1.h = h1 - dy;
+        rect2.y = 0;
+        rect2.h = rect1.h;
+    }
+
+    if y2 < y1 && dy < h2 {
+        rect2.y = dy;
+        rect2.h = h2 - dy;
+        rect1.y = 0;
+        rect1.h = rect2.h;
+    }
+
+    (rect1, rect2)
 }
 
 fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initial_solution: &Solution) -> Vec<Population<Solution>> {
@@ -70,16 +143,16 @@ impl Individual for Solution {
             },
             1 => {
                 // Move x
-                self.arrangement[index1].pos_x = self.arrangement[index1].pos_x + (rng.gen_range(0, 3) - 1);
+                self.arrangement[index1].x = self.arrangement[index1].x + (rng.gen_range(0, 3) - 1);
             },
             2 => {
                 // Move y
-                self.arrangement[index1].pos_y = self.arrangement[index1].pos_y + (rng.gen_range(0, 3) - 1);
+                self.arrangement[index1].y = self.arrangement[index1].y + (rng.gen_range(0, 3) - 1);
             },
             3 => {
                 // Rotate
                 let angle: f64 = ((rng.gen_range(0, 21) - 10) as f64) * 0.1;
-                self.arrangement[index1].rotation = self.arrangement[index1].rotation + angle;
+                self.arrangement[index1].angle = self.arrangement[index1].angle + angle;
             },
             op => {
                 warn!("mutate(): unknown operation: {}", op)
@@ -88,14 +161,30 @@ impl Individual for Solution {
     }
 
     fn calculate_fitness(&mut self) -> f64 {
-        0.0
+        let mut fitness = 0.0;
+
+        for i in 0..self.arrangement.len() {
+            let arrangement1 = &self.arrangement[i];
+            let arrangement2 = &self.arrangement[i + 1];
+
+            let image1 = image::open(&arrangement1.file_name).unwrap();
+            let image2 = image::open(&arrangement2.file_name).unwrap();
+
+            let (rect1, rect2) = calc_intersection(
+                arrangement1.x, arrangement2.x, arrangement1.y, arrangement2.y,
+                image1.width(), image2.width(), image1.height(), image2.height()
+            );
+        }
+
+        fitness
     }
 
     fn reset(&mut self) {
         for arrangement in &mut self.arrangement {
-            arrangement.pos_x = 0;
-            arrangement.pos_y = 0;
-            arrangement.rotation = 0.0;
+            // Reset all image operation to original image
+            arrangement.x = 0;
+            arrangement.y = 0;
+            arrangement.angle = 0.0;
         }
     }
 }
@@ -138,20 +227,42 @@ pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig, thumbnai
     if let Some(solution) = solution {
         result.arrangement = solution.arrangement.iter().zip(thumbnail_path).map(|(arrangement, path)| ImageArrangement {
                 file_name: path.clone(),
-                pos_x: arrangement.pos_x,
-                pos_y: arrangement.pos_y,
-                rotation: arrangement.rotation,
+                x: arrangement.x,
+                y: arrangement.y,
+                angle: arrangement.angle,
             }
         ).collect();
     } else {
         result.arrangement = thumbnail_path.iter().map(|path| ImageArrangement {
                 file_name: path.clone(),
-                pos_x: 0,
-                pos_y: 0,
-                rotation: 0.0
+                x: 0,
+                y: 0,
+                angle: 0.0
             }
         ).collect();
     }
 
     run_darwin(result, config.max_iteration)
+}
+
+#[cfg(test)]
+mod test {
+    use super::{calc_intersection, Rectangle};
+
+    #[test]
+    fn calc_intersection1() {
+        let (r1, r2) = calc_intersection(0, 0, 0, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection2() {
+        let (r1, r2) = calc_intersection(0, 0, 0, 0, 15, 10, 25, 20);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 20});
+    }
+
 }
