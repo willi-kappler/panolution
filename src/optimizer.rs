@@ -70,28 +70,28 @@ fn calc_intersection(x1: u32, x2: u32, y1: u32, y2: u32, w1: u32, w2: u32, h1: u
 
     if x1 < x2 && dx < w1 {
         rect1.x = dx;
-        rect1.w = w1 - dx;
+        rect1.w = cmp::min(w1 - dx, w2);
         rect2.x = 0;
         rect2.w = rect1.w;
     }
 
     if x2 < x1 && dx < w2 {
         rect2.x = dx;
-        rect2.w = w2 - dx;
+        rect2.w = cmp::min(w2 - dx, w1);
         rect1.x = 0;
         rect1.w = rect2.w;
     }
 
     if y1 < y2 && dy < h1 {
         rect1.y = dy;
-        rect1.h = h1 - dy;
+        rect1.h = cmp::min(h1 - dy, h2);
         rect2.y = 0;
         rect2.h = rect1.h;
     }
 
     if y2 < y1 && dy < h2 {
         rect2.y = dy;
-        rect2.h = h2 - dy;
+        rect2.h = cmp::min(h2 - dy, h1);
         rect1.y = 0;
         rect1.h = rect2.h;
     }
@@ -146,11 +146,19 @@ impl Individual for Solution {
             },
             1 => {
                 // Move x
-                self.arrangement[index1].x = self.arrangement[index1].x + (rng.gen_range(0, 3) - 1);
+                if self.arrangement[index1].x > 0 {
+                    self.arrangement[index1].x = self.arrangement[index1].x + (rng.gen_range(0, 3) - 1);
+                } else {
+                    self.arrangement[index1].x = self.arrangement[index1].x + rng.gen_range(0, 2);
+                }
             },
             2 => {
                 // Move y
-                self.arrangement[index1].y = self.arrangement[index1].y + (rng.gen_range(0, 3) - 1);
+                if self.arrangement[index1].y > 0 {
+                    self.arrangement[index1].y = self.arrangement[index1].y + (rng.gen_range(0, 3) - 1);
+                } else {
+                    self.arrangement[index1].y = self.arrangement[index1].y + rng.gen_range(0, 2);
+                }
             },
             3 => {
                 // Rotate
@@ -278,6 +286,110 @@ mod test {
 
         assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
         assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection3() {
+        let (r1, r2) = calc_intersection(50, 0, 0, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 20});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection4() {
+        let (r1, r2) = calc_intersection(0, 50, 0, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 20});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection5() {
+        let (r1, r2) = calc_intersection(0, 0, 50, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 0});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 0});
+    }
+
+    #[test]
+    fn calc_intersection6() {
+        let (r1, r2) = calc_intersection(0, 0, 0, 50, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 0});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 0});
+    }
+
+    #[test]
+    fn calc_intersection7() {
+        let (r1, r2) = calc_intersection(50, 0, 50, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 0});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 0});
+    }
+
+    #[test]
+    fn calc_intersection8() {
+        let (r1, r2) = calc_intersection(0, 50, 0, 50, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 0});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 0});
+    }
+
+    #[test]
+    fn calc_intersection9() {
+        let (r1, r2) = calc_intersection(3, 0, 0, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
+        assert_eq!(r2, Rectangle{x: 3, y: 0, w: 10, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection10() {
+        let (r1, r2) = calc_intersection(7, 0, 0, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 8, h: 20});
+        assert_eq!(r2, Rectangle{x: 7, y: 0, w: 8, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection11() {
+        let (r1, r2) = calc_intersection(0, 8, 0, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 8, y: 0, w: 2, h: 20});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 2, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection12() {
+        let (r1, r2) = calc_intersection(0, 0, 4, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
+        assert_eq!(r2, Rectangle{x: 0, y: 4, w: 10, h: 20});
+    }
+
+    #[test]
+    fn calc_intersection13() {
+        let (r1, r2) = calc_intersection(0, 0, 9, 0, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 16});
+        assert_eq!(r2, Rectangle{x: 0, y: 9, w: 10, h: 16});
+    }
+
+    #[test]
+    fn calc_intersection14() {
+        let (r1, r2) = calc_intersection(0, 0, 0, 12, 10, 15, 20, 25);
+
+        assert_eq!(r1, Rectangle{x: 0, y: 12, w: 10, h: 8});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 8});
+    }
+
+    #[test]
+    fn calc_intersection15() {
+        let (r1, r2) = calc_intersection(0, 8, 0, 9, 10, 10, 10, 10);
+
+        assert_eq!(r1, Rectangle{x: 8, y: 9, w: 2, h: 1});
+        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 2, h: 1});
     }
 
 }
