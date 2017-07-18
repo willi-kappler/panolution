@@ -5,6 +5,9 @@ use image::{GenericImage, FilterType, DynamicImage};
 use rand::Rng;
 use rand;
 
+// Std modules:
+use std::cmp;
+
 // Internal modules:
 use config::PanolutionConfig;
 
@@ -170,10 +173,22 @@ impl Individual for Solution {
             let image1 = image::open(&arrangement1.file_name).unwrap();
             let image2 = image::open(&arrangement2.file_name).unwrap();
 
+            let w1 = image1.width();
+            let w2 = image2.width();
+            let h1 = image1.height();
+            let h2 = image2.height();
+
             let (rect1, rect2) = calc_intersection(
                 arrangement1.x, arrangement2.x, arrangement1.y, arrangement2.y,
-                image1.width(), image2.width(), image1.height(), image2.height()
+                w1, w2, h1, h2
             );
+
+            if rect1.w == 0 || rect1.h == 0 {
+                // Images don't intersect, add penalty
+                fitness = fitness + cmp::max(w1 * h1, w2 * h2) as f64;
+            } else {
+                let intersection_area = rect1.w * rect1.h;
+            }
         }
 
         fitness
