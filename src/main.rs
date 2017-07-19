@@ -14,6 +14,7 @@ extern crate chrono;
 extern crate itertools;
 extern crate walkdir;
 extern crate image;
+extern crate imageproc;
 extern crate rand;
 
 // External imports:

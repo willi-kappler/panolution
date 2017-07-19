@@ -1,9 +1,10 @@
 // External modules:
 use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
 use image;
-use image::{GenericImage, FilterType, DynamicImage};
+use image::{GenericImage, FilterType, DynamicImage, imageops};
 use rand::Rng;
 use rand;
+use imageproc::{stats, affine};
 
 // Std modules:
 use std::cmp;
@@ -17,7 +18,7 @@ pub struct ImageArrangement {
     // TODO: Add image and share it, so it doesn't have to be re-loaded every time
     x: u32,
     y: u32,
-    angle: f64,
+    angle: f32,
     // TODO: add more image operations
 }
 
@@ -162,7 +163,7 @@ impl Individual for Solution {
             },
             3 => {
                 // Rotate
-                let angle: f64 = ((rng.gen_range(0, 21) - 10) as f64) * 0.1;
+                let angle: f32 = ((rng.gen_range(0, 201) - 100) as f32) * 0.01;
                 self.arrangement[index1].angle = self.arrangement[index1].angle + angle;
             },
             op => {
@@ -181,6 +182,9 @@ impl Individual for Solution {
             let image1 = image::open(&arrangement1.file_name).unwrap();
             let image2 = image::open(&arrangement2.file_name).unwrap();
 
+            let mut image1 = affine::rotate_about_center(image1.as_rgb8().unwrap(), arrangement1.angle, affine::Interpolation::Nearest);
+            let mut image2 = affine::rotate_about_center(image2.as_rgb8().unwrap(), arrangement1.angle, affine::Interpolation::Nearest);
+
             let w1 = image1.width();
             let w2 = image2.width();
             let h1 = image1.height();
@@ -196,6 +200,10 @@ impl Individual for Solution {
                 fitness = fitness + cmp::max(w1 * h1, w2 * h2) as f64;
             } else {
                 let intersection_area = rect1.w * rect1.h;
+                let sub_image1 = imageops::crop(&mut image1, rect1.x, rect1.y, rect1.w, rect1.h);
+                let sub_image2 = imageops::crop(&mut image2, rect2.x, rect2.y, rect2.w, rect2.h);
+
+                fitness = fitness + (stats::root_mean_squared_error(&sub_image1, &sub_image2) / intersection_area as f64);
             }
         }
 
