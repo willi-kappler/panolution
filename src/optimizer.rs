@@ -16,8 +16,8 @@ use config::PanolutionConfig;
 pub struct ImageArrangement {
     file_name: String, // TODO: Share path between individuals
     // TODO: Add image and share it, so it doesn't have to be re-loaded every time
-    x: u32,
-    y: u32,
+    x: i32,
+    y: i32,
     angle: f32,
     // TODO: add more image operations
 }
@@ -126,7 +126,7 @@ fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initia
 impl Individual for Solution {
     fn mutate(&mut self) {
         let mut rng = rand::thread_rng();
-        let num_of_operations: u8 = 4;
+        let num_of_operations: u8 = 7;
 
         let index1: usize = rng.gen_range(0, self.arrangement.len());
 
@@ -146,25 +146,40 @@ impl Individual for Solution {
                 self.arrangement.swap(index1, index2);
             },
             1 => {
-                // Move x
-                if self.arrangement[index1].x > 0 {
-                    self.arrangement[index1].x = self.arrangement[index1].x + (rng.gen_range(0, 3) - 1);
-                } else {
-                    self.arrangement[index1].x = self.arrangement[index1].x + rng.gen_range(0, 2);
+                // Move x, small step
+                self.arrangement[index1].x = self.arrangement[index1].x + (((rng.next_f64() - 0.5) * 20.0).round() as i32);
+                if self.arrangement[index1].x < 0 {
+                    self.arrangement[index1].x = 0;
                 }
             },
             2 => {
-                // Move y
-                if self.arrangement[index1].y > 0 {
-                    self.arrangement[index1].y = self.arrangement[index1].y + (rng.gen_range(0, 3) - 1);
-                } else {
-                    self.arrangement[index1].y = self.arrangement[index1].y + rng.gen_range(0, 2);
+                // Move x, big step
+                self.arrangement[index1].x = self.arrangement[index1].x + (((rng.next_f64() - 0.5) * 200.0).round() as i32);
+                if self.arrangement[index1].x < 0 {
+                    self.arrangement[index1].x = 0;
                 }
             },
             3 => {
-                // Rotate
-                let angle: f32 = ((rng.gen_range(0, 201) - 100) as f32) * 0.01;
-                self.arrangement[index1].angle = self.arrangement[index1].angle + angle;
+                // Move y, small step
+                self.arrangement[index1].y = self.arrangement[index1].y + (((rng.next_f64() - 0.5) * 20.0).round() as i32);
+                if self.arrangement[index1].y < 0 {
+                    self.arrangement[index1].y = 0;
+                }
+            },
+            4 => {
+                // Move y, big step
+                self.arrangement[index1].y = self.arrangement[index1].y + (((rng.next_f64() - 0.5) * 200.0).round() as i32);
+                if self.arrangement[index1].y < 0 {
+                    self.arrangement[index1].y = 0;
+                }
+            },
+            5 => {
+                // Rotate, small step
+                self.arrangement[index1].angle = self.arrangement[index1].angle + ((rng.next_f32() - 0.5) * 0.1);
+            },
+            6 => {
+                // Rotate, big step
+                self.arrangement[index1].angle = self.arrangement[index1].angle + (rng.next_f32() - 0.5);
             },
             op => {
                 warn!("mutate(): unknown operation: {}", op)
@@ -175,7 +190,7 @@ impl Individual for Solution {
     fn calculate_fitness(&mut self) -> f64 {
         let mut fitness = 0.0;
 
-        for i in 0..self.arrangement.len() {
+        for i in 0..(self.arrangement.len() - 1) {
             let arrangement1 = &self.arrangement[i];
             let arrangement2 = &self.arrangement[i + 1];
 
@@ -190,20 +205,22 @@ impl Individual for Solution {
             let h1 = image1.height();
             let h2 = image2.height();
 
+            let area_max = cmp::max(w1 * h1, w2 * h2) as f64;
+
             let (rect1, rect2) = calc_intersection(
-                arrangement1.x, arrangement2.x, arrangement1.y, arrangement2.y,
+                arrangement1.x as u32, arrangement2.x as u32, arrangement1.y as u32, arrangement2.y as u32,
                 w1, w2, h1, h2
             );
 
             if rect1.w == 0 || rect1.h == 0 {
-                // Images don't intersect, add penalty
-                fitness = fitness + cmp::max(w1 * h1, w2 * h2) as f64;
+                // Images don't intersect, add penalty for this individual
+                fitness = fitness + area_max;
             } else {
                 let intersection_area = rect1.w * rect1.h;
                 let sub_image1 = imageops::crop(&mut image1, rect1.x, rect1.y, rect1.w, rect1.h);
                 let sub_image2 = imageops::crop(&mut image2, rect2.x, rect2.y, rect2.w, rect2.h);
 
-                fitness = fitness + (stats::root_mean_squared_error(&sub_image1, &sub_image2) / intersection_area as f64);
+                fitness = fitness + (area_max * stats::root_mean_squared_error(&sub_image1, &sub_image2) / intersection_area as f64);
             }
         }
 
@@ -226,7 +243,7 @@ fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
     let pano = SimulationBuilder::<Solution>::new()
         .iterations(max_iteration)
         .threads(4) // TODO: Make this configurable
-        .add_multiple_populations(make_all_populations(100, 8, &solution))
+        .add_multiple_populations(make_all_populations(10, 8, &solution))
         .finalize();
 
     match pano {
