@@ -50,6 +50,8 @@ pub fn create_thumbnails(config: &PanolutionConfig) -> Result<(Vec<String>, Vec<
             } else {
                 info!("Loading image file: '{}'", full_path);
                 let orig_img = image::open(&full_path).chain_err(|| format!("can't open image: '{}", full_path))?;
+                let width = orig_img.width();
+                let height = orig_img.height();
                 info!("No thumbnail found for scale factor '{}', generating new one", scale_factor);
                 let (orig_w, orig_h) = orig_img.dimensions();
                 let (thumb_w, thumb_h) = (((orig_w as f64) * scale_factor) as u32, ((orig_h as f64) * scale_factor) as u32);

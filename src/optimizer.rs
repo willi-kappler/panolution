@@ -35,6 +35,17 @@ struct Rectangle {
     h: u32,
 }
 
+fn calc_extendion(solution: &Solution) -> (u32, u32) {
+    solution.arrangement.iter().fold(
+        (0, 0), |(total_w, total_h), elem| {
+            let image = image::open(&elem.file_name).unwrap();
+            let img_w = image.width();
+            let img_h = image.height();
+            (cmp::max(total_w, img_w), cmp::max(total_h, img_h))
+        }
+    )
+}
+
 fn calc_intersection(x1: u32, x2: u32, y1: u32, y2: u32, w1: u32, w2: u32, h1: u32, h2: u32) -> (Rectangle, Rectangle) {
     // rect1 and rect2 refer to positions inside the images. Not the absolute positions.
     let mut rect1 = Rectangle{x: 0, y: 0, w: 0, h: 0};
