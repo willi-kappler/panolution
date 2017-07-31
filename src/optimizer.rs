@@ -8,23 +8,32 @@ use imageproc::{stats, affine};
 
 // Std modules:
 use std::cmp;
+use std::path::Path;
 
 // Internal modules:
 use config::PanolutionConfig;
 
 #[derive(Clone)]
 pub struct ImageArrangement {
-    file_name: String, // TODO: Share path between individuals
+    pub file_name: String, // TODO: Share path between individuals
     // TODO: Add image and share it, so it doesn't have to be re-loaded every time
-    x: i32,
-    y: i32,
-    angle: f32,
+    pub x: f64,
+    pub y: f64,
+    pub angle: f32,
     // TODO: add more image operations
 }
 
 #[derive(Clone)]
 pub struct Solution {
-    arrangement: Vec<ImageArrangement>,
+    pub arrangement: Vec<ImageArrangement>,
+}
+
+impl Solution {
+    pub fn update_path_from(&mut self, solution: &Solution) {
+        for (new, old) in self.arrangement.iter_mut().zip(&solution.arrangement) {
+            new.file_name = old.file_name.clone();
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -158,30 +167,38 @@ impl Individual for Solution {
             },
             1 => {
                 // Move x, small step
-                self.arrangement[index1].x = self.arrangement[index1].x + (((rng.next_f64() - 0.5) * 20.0).round() as i32);
-                if self.arrangement[index1].x < 0 {
-                    self.arrangement[index1].x = 0;
+                self.arrangement[index1].x = self.arrangement[index1].x + ((rng.next_f64() - 0.5) * 0.1);
+                if self.arrangement[index1].x < 0.0 {
+                    self.arrangement[index1].x = 0.0;
+                } else if self.arrangement[index1].x > 1.0 {
+                    self.arrangement[index1].x = 1.0;
                 }
             },
             2 => {
                 // Move x, big step
-                self.arrangement[index1].x = self.arrangement[index1].x + (((rng.next_f64() - 0.5) * 200.0).round() as i32);
-                if self.arrangement[index1].x < 0 {
-                    self.arrangement[index1].x = 0;
+                self.arrangement[index1].x = self.arrangement[index1].x + rng.next_f64() - 0.5;
+                if self.arrangement[index1].x < 0.0 {
+                    self.arrangement[index1].x = 0.0;
+                } else if self.arrangement[index1].x > 1.0 {
+                    self.arrangement[index1].x = 1.0;
                 }
             },
             3 => {
                 // Move y, small step
-                self.arrangement[index1].y = self.arrangement[index1].y + (((rng.next_f64() - 0.5) * 20.0).round() as i32);
-                if self.arrangement[index1].y < 0 {
-                    self.arrangement[index1].y = 0;
+                self.arrangement[index1].y = self.arrangement[index1].y + ((rng.next_f64() - 0.5) * 0.1);
+                if self.arrangement[index1].y < 0.0 {
+                    self.arrangement[index1].y = 0.0;
+                } else if self.arrangement[index1].y > 1.0 {
+                    self.arrangement[index1].y = 1.0;
                 }
             },
             4 => {
                 // Move y, big step
-                self.arrangement[index1].y = self.arrangement[index1].y + (((rng.next_f64() - 0.5) * 200.0).round() as i32);
-                if self.arrangement[index1].y < 0 {
-                    self.arrangement[index1].y = 0;
+                self.arrangement[index1].y = self.arrangement[index1].y + rng.next_f64() - 0.5;
+                if self.arrangement[index1].y < 0.0 {
+                    self.arrangement[index1].y = 0.0;
+                } else if self.arrangement[index1].y > 1.0 {
+                    self.arrangement[index1].y = 1.0;
                 }
             },
             5 => {
@@ -241,14 +258,14 @@ impl Individual for Solution {
     fn reset(&mut self) {
         for arrangement in &mut self.arrangement {
             // Reset all image operation to original image
-            arrangement.x = 0;
-            arrangement.y = 0;
+            arrangement.x = 0.0;
+            arrangement.y = 0.0;
             arrangement.angle = 0.0;
         }
     }
 }
 
-fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
+fn run_darwin(solution: &Solution, max_iteration: u32) -> Solution {
     info!("Run darwin with maximum number of iterations: {}", max_iteration);
 
     let pano = SimulationBuilder::<Solution>::new()
@@ -265,7 +282,7 @@ fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
                 error!("Caused by '{}'", e)
             }
 
-            solution
+            solution.clone()
         },
         Ok(mut pano_simulation) => {
             pano_simulation.run();
@@ -279,29 +296,8 @@ fn run_darwin(solution: Solution, max_iteration: u32) -> Solution {
     }
 }
 
-pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig, thumbnail_path: &Vec<String>) -> Solution {
-    let mut result = Solution{ arrangement: Vec::new() };
-
-    // Prepare data
-    if let Some(solution) = solution {
-        result.arrangement = solution.arrangement.iter().zip(thumbnail_path).map(|(arrangement, path)| ImageArrangement {
-                file_name: path.clone(),
-                x: arrangement.x,
-                y: arrangement.y,
-                angle: arrangement.angle,
-            }
-        ).collect();
-    } else {
-        result.arrangement = thumbnail_path.iter().map(|path| ImageArrangement {
-                file_name: path.clone(),
-                x: 0,
-                y: 0,
-                angle: 0.0
-            }
-        ).collect();
-    }
-
-    run_darwin(result, config.max_iteration)
+pub fn optimize(solution: &Solution, config: &PanolutionConfig) -> Solution {
+    run_darwin(solution, config.max_iteration)
 }
 
 #[cfg(test)]

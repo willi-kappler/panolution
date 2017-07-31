@@ -37,7 +37,7 @@ fn default_config() -> PanolutionConfig {
     PanolutionConfig {
         input_path: "./".to_string(),
         max_iteration: 1000,
-        scale_factors: vec![0.1, 0.3],
+        scale_factors: vec![0.1, 0.3, 1.0],
     }
 }
 
@@ -127,6 +127,9 @@ fn process_config(matches: ArgMatches) -> Result<PanolutionConfig> {
         }
         result.scale_factors = values;
     }
+
+    result.scale_factors.retain(|&factor| factor > 0.0 && factor < 1.0 );
+    result.scale_factors.push(1.0);
 
     Ok(result)
 }

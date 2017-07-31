@@ -39,8 +39,6 @@ use optimizer::optimize;
 mod output;
 use output::write_image;
 
-mod util;
-
 fn main() {
     // Init logger
     create_logger();
@@ -54,19 +52,19 @@ fn main() {
 
     // Create thumbnails if necessary:
     match create_thumbnails(&config) {
-        Ok((all_image_paths, all_thumbnail_paths)) => {
+        Ok(solutions) => {
             // Run optimizer once for the smallest image size (scale factor):
-            let mut current_arrangement = optimize(None, &config, &all_thumbnail_paths[0]);
+            let mut new_solution = optimize(&solutions[0], &config);
 
             // Loop through all scale factors and find the optimal solution for each step
             // Use that result as input for the next scale factor iteration
-            for thumbnail_path in all_thumbnail_paths.iter().skip(1) {
-                current_arrangement = optimize(Some(&current_arrangement), &config, &thumbnail_path);
+            for solution in solutions.iter().skip(1) {
+                new_solution.update_path_from(&solution);
+                new_solution = optimize(&new_solution, &config);
             }
 
             // Write result as big panorama image
-
-            write_image(&current_arrangement, &config, all_image_paths);
+            write_image(&new_solution, &config);
         },
         Err(e) => {
             error!("An error occured: {}", e);
