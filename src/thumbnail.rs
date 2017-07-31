@@ -110,11 +110,7 @@ pub fn create_thumbnails(config: &PanolutionConfig) -> Result<Vec<Solution>> {
             }
         }
 
-        result.push(
-            Solution {
-                arrangement: arrangement
-            }
-        );
+        result.push(Solution{arrangement: arrangement});
     }
 
     Ok(result)
