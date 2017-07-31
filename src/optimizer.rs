@@ -16,6 +16,8 @@ use config::PanolutionConfig;
 #[derive(Clone)]
 pub struct ImageArrangement {
     pub file_name: String, // TODO: Share path between individuals
+    pub w: u32,
+    pub h: u32,
     // TODO: Add image and share it, so it doesn't have to be re-loaded every time
     pub x: f64,
     pub y: f64,
