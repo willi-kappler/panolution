@@ -12,20 +12,12 @@ use optimizer::{Solution, ImageArrangement};
 // Std modules:
 use std::path::PathBuf;
 
-fn is_supported_format(entry: &DirEntry) -> bool {
-    if entry.file_type().is_file() {
-        if let Some(file_name) = entry.file_name().to_str() {
-            let extension = file_name.split(".").last().unwrap_or("").to_lowercase();
+fn valid_image_file(file_name: &str) -> bool {
+    let extension = file_name.split(".").last().unwrap_or("").to_lowercase();
 
-            let supported: Vec<String> = vec!["jpg", "jpeg", "gif", "png", "tif", "tiff"].iter().map(|s| s.to_string()).collect();
+    let supported: Vec<String> = vec!["jpg", "jpeg", "gif", "png", "tif", "tiff"].iter().map(|s| s.to_string()).collect();
 
-            supported.contains(&extension)
-        } else {
-            false
-        }
-    } else {
-        false
-    }
+    supported.contains(&extension)
 }
 
 fn create_image_arrangement(path: &PathBuf) -> Result<ImageArrangement> {
@@ -47,24 +39,26 @@ fn create_image_arrangement(path: &PathBuf) -> Result<ImageArrangement> {
 pub fn create_thumbnails(config: &PanolutionConfig) -> Result<Vec<Solution>> {
     let mut all_image_paths: Vec<PathBuf> = Vec::new();
     let mut result = Vec::new();
-    let walker = WalkDir::new(&config.input_path).into_iter();
 
-    for entry in walker.filter_entry(|e| is_supported_format(e)) {
+    for entry in WalkDir::new(&config.input_path) {
         let entry = entry.chain_err(|| "error in WalkDir")?;
-        let path = entry.path();
 
-        if let Some(file_name) = path.file_name() {
-            if let Some(file_name) = file_name.to_str() {
-                if file_name.starts_with("thumb_") {
-                    info!("Ignore thumbnail file: {:?}", path);
+        if entry.file_type().is_file() {
+            if let Some(file_name) = entry.file_name().to_str() {
+                if valid_image_file(file_name) {
+                    if file_name.starts_with("thumb_") {
+                        info!("Ignore thumbnail file: {:?}", file_name);
+                    } else {
+                        all_image_paths.push(entry.path().to_path_buf());
+                    }
                 } else {
-                    all_image_paths.push(path.to_path_buf());
+                    info!("Image format currently not supported: {}", file_name);
                 }
             } else {
-                info!("Could not converto to str: {:?}", file_name);
+                info!("Could not convert file name to str: {:?}", entry);
             }
         } else {
-            info!("Could not get file_name: {:?}", path)
+            info!("Ignore non-file: {:?}", entry);
         }
     }
 
