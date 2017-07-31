@@ -46,13 +46,10 @@ struct Rectangle {
     h: u32,
 }
 
-fn calc_extendion(solution: &Solution) -> (u32, u32) {
+fn calc_extension(solution: &Solution) -> (u32, u32) {
     solution.arrangement.iter().fold(
         (0, 0), |(total_w, total_h), elem| {
-            let image = image::open(&elem.file_name).unwrap();
-            let img_w = image.width();
-            let img_h = image.height();
-            (cmp::max(total_w, img_w), cmp::max(total_h, img_h))
+            (cmp::max(total_w, elem.w), cmp::max(total_h, elem.h))
         }
     )
 }
@@ -220,6 +217,11 @@ impl Individual for Solution {
     fn calculate_fitness(&mut self) -> f64 {
         let mut fitness = 0.0;
 
+        // The total width and height of the panorama image with the current image sizes
+        // TODO: This needs to be calculated only once, move to thumbnail.rs
+        let total_width = (2 * self.arrangement.iter().fold(0, |tw, elem| tw + elem.w )) as f64;
+        let total_height = (2 * self.arrangement.iter().fold(0, |th, elem| th + elem.h )) as f64;
+
         for i in 0..(self.arrangement.len() - 1) {
             let arrangement1 = &self.arrangement[i];
             let arrangement2 = &self.arrangement[i + 1];
@@ -238,7 +240,10 @@ impl Individual for Solution {
             let area_max = cmp::max(w1 * h1, w2 * h2) as f64;
 
             let (rect1, rect2) = calc_intersection(
-                arrangement1.x as u32, arrangement2.x as u32, arrangement1.y as u32, arrangement2.y as u32,
+                (arrangement1.x * total_width) as u32,
+                (arrangement2.x * total_width) as u32,
+                (arrangement1.y * total_height) as u32,
+                (arrangement2.y * total_height) as u32,
                 w1, w2, h1, h2
             );
 
