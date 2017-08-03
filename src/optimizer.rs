@@ -124,14 +124,20 @@ impl Individual for Solution {
                     index2 = rng.gen_range(0, self.arrangement.len());
                 }
 
-                let px = self.arrangement[index1].x;
-                let py = self.arrangement[index1].y;
+                let px0 = self.arrangement[index1].x0;
+                let py0 = self.arrangement[index1].y0;
+                let px1 = self.arrangement[index1].x1;
+                let py1 = self.arrangement[index1].y1;
 
-                self.arrangement[index1].x = self.arrangement[index2].x;
-                self.arrangement[index1].y = self.arrangement[index2].y;
+                self.arrangement[index1].x0 = self.arrangement[index2].x0;
+                self.arrangement[index1].y0 = self.arrangement[index2].y0;
+                self.arrangement[index1].x1 = self.arrangement[index2].x1;
+                self.arrangement[index1].y1 = self.arrangement[index2].y1;
 
-                self.arrangement[index2].x = px;
-                self.arrangement[index2].y = py;
+                self.arrangement[index2].x0 = px0;
+                self.arrangement[index2].y0 = py0;
+                self.arrangement[index2].x1 = px1;
+                self.arrangement[index2].y1 = py1;
             },
             1 => {
                 // Move x
@@ -250,6 +256,7 @@ fn run_darwin(solution: &Solution, config: &PanolutionConfig) -> Solution {
             info!("Total run time: {} ms", pano_simulation.total_time_in_ms);
             info!("Improvement factor: {}", pano_simulation.simulation_result.improvement_factor);
             info!("Number of iterations: {}", pano_simulation.simulation_result.iteration_counter);
+            info!("New fitness: {}", pano_simulation.simulation_result.fittest[0].fitness);
 
             pano_simulation.simulation_result.fittest[0].individual.clone()
         }
