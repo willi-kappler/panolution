@@ -40,7 +40,7 @@ fn default_config() -> PanolutionConfig {
         input_path: "./".to_string(),
         max_iteration: 1000,
         num_of_threads: 4,
-        num_of_samples: vec![1000, 5000, 10000],
+        num_of_samples: vec![100, 500, 1000],
     }
 }
 

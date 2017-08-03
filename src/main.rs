@@ -31,10 +31,20 @@ use logger::create_logger;
 mod error;
 
 mod optimizer;
-use optimizer::optimize;
+use optimizer::{optimize, Solution};
 
 mod output;
 use output::write_image;
+
+fn print_solution(solution: &Solution) {
+    for arrangement in &solution.arrangement {
+        info!("samples: {}, x0: {}, y0: {}, angle: {}",
+            arrangement.samples,
+            arrangement.x0,
+            arrangement.y0,
+            arrangement.angle);
+    }
+}
 
 fn main() {
     // Init logger
@@ -45,8 +55,15 @@ fn main() {
     info!("Configuration option:");
     info!("input path: '{}'", config.input_path);
     info!("max iteration: '{}'", config.max_iteration);
+    info!("samples: '{}'", config.num_of_samples.iter().join(", "));
 
-    let mut solution = optimize(None, &config);
+    let mut solution = optimize(None, &config, 0);
+    print_solution(&solution);
+
+    for sample_index in 1..config.num_of_samples.len() {
+        solution = optimize(Some(&solution), &config, sample_index);
+        print_solution(&solution);
+    }
 
     write_image(&solution, &config);
 }

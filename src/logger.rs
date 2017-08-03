@@ -19,7 +19,7 @@ pub fn create_logger() {
 
     if let Ok(file) = OpenOptions::new().append(true).create(true).open(&log_file_name) {
         let _ = WriteLogger::init(LogLevelFilter::Info, log_config, file);
-        info!("Log file '{}' created succesfully", &log_file_name);
+        info!("Log file '{}' opened succesfully", &log_file_name);
     } else {
         // Log file could not be created, use stdout instead
         let _ = TermLogger::init(LogLevelFilter::Info, log_config);

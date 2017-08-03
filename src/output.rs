@@ -1,8 +1,8 @@
 // External modules:
-use image;
+// use image;
 
 // Std modules:
-use std::cmp;
+// use std::cmp;
 
 // Internal modules:
 use optimizer::Solution;

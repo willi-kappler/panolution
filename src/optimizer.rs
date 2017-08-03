@@ -2,20 +2,41 @@
 use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
 use image;
 // use image::{GenericImage, FilterType, DynamicImage, imageops};
+use image::{GenericImage, DynamicImage, Rgba};
 use rand::Rng;
 use rand;
 use walkdir::{WalkDir};
 
-
-// Std modules:
+// use std::path::Path;
+use std::f64::consts::PI;
 use std::cmp;
-use std::path::Path;
-use std::f32::consts::PI;
 
 // Internal modules:
 use config::PanolutionConfig;
 
+#[derive(Clone)]
+pub struct ImageArrangement {
+    pub file_name: String, // TODO: Share path between individuals
+    // TODO: Add image and share it, so it doesn't have to be re-loaded every time
+    pub samples: u32,
+    pub x0: u32,
+    pub y0: u32,
+    pub x1: u32,
+    pub y1: u32,
+    pub angle: f64,
+    // TODO: add more image operations
+}
 
+#[derive(Clone)]
+pub struct Solution {
+    pub arrangement: Vec<ImageArrangement>,
+}
+
+struct SamplePixel{
+    x: u32,
+    y: u32,
+    pixels: Vec<(u8, u8, u8)>
+}
 
 fn valid_image_file(file_name: &str) -> bool {
     let extension = file_name.split(".").last().unwrap_or("").to_lowercase();
@@ -25,24 +46,41 @@ fn valid_image_file(file_name: &str) -> bool {
     supported.contains(&extension)
 }
 
-
-
-
-#[derive(Clone)]
-pub struct ImageArrangement {
-    pub file_name: String, // TODO: Share path between individuals
-    // TODO: Add image and share it, so it doesn't have to be re-loaded every time
-    pub x: u32,
-    pub y: u32,
-    pub angle: f32,
-    // TODO: add more image operations
+fn calc_canvas_size(arrangement: &Vec<ImageArrangement>) -> (u32, u32, u32, u32) {
+    arrangement.iter().fold((u32::max_value(), u32::max_value(), 0, 0), |(cx0, cy0, cx1, cy1), im_ar| {
+        (cmp::min(cx0, im_ar.x0), cmp::min(cy0, im_ar.y0), cmp::max(cx1, im_ar.x1), cmp::max(cy1, im_ar.y1))
+    })
 }
 
-#[derive(Clone)]
-pub struct Solution {
-    pub arrangement: Vec<ImageArrangement>,
-}
+fn get_pixel(cx: f64, cy: f64, im_ar: &ImageArrangement, img: &DynamicImage) -> Option<(u8, u8, u8)> {
+    // Center of image
+    let mx = ((im_ar.x0 + im_ar.x1) / 2) as f64;
+    let my = ((im_ar.y0 + im_ar.y1) / 2) as f64;
 
+    // Move center of rotation to origin (0,0)
+    let ox = cx - mx;
+    let oy = cy - my;
+
+    // Rotate canvas point in reverse of image orientation (clockwise)
+    let cos_a = im_ar.angle.cos();
+    let sin_a = im_ar.angle.sin();
+
+    let rx = (ox * cos_a) + (oy * sin_a);
+    let ry = (-ox * sin_a) + (oy * cos_a);
+
+    // Move back to image coordinate system
+    let imx = (rx + mx) as u32;
+    let imy = (ry + my) as u32;
+
+    // Check if point is inside the image:
+
+    if (imx >= im_ar.x0) && (imx <= im_ar.x1) && (imy >= im_ar.y0) && (imy <= im_ar.y1) {
+        let pixel = img.get_pixel(imx - im_ar.x0, imy - im_ar.y0) as Rgba<u8>;
+        return Some((pixel.data[0], pixel.data[1], pixel.data[2]));
+    }
+
+    None
+}
 
 fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initial_solution: &Solution) -> Vec<Population<Solution>> {
     let mut result = Vec::new();
@@ -90,21 +128,32 @@ impl Individual for Solution {
             },
             1 => {
                 // Move x
-                self.arrangement[index1].x = self.arrangement[index1].x + rng.gen_range(0, 500) - 250;
-                if self.arrangement[index1].x < 0 {
-                    self.arrangement[index1].x = 0;
+                let dx = rng.gen_range::<i32>(0, 500) - 250;
+                let new_x = (self.arrangement[index1].x0 as i32) + dx;
+
+                if new_x >= 0 {
+                    self.arrangement[index1].x0 = new_x as u32;
+                    self.arrangement[index1].x1 = ((self.arrangement[index1].x1 as i32) + dx) as u32;
                 }
             },
             2 => {
                 // Move y
-                self.arrangement[index1].y = self.arrangement[index1].y + rng.gen_range(0, 500) - 250;
-                if self.arrangement[index1].y < 0 {
-                    self.arrangement[index1].y = 0;
+                let dy = rng.gen_range::<i32>(0, 500) - 250;
+                let new_y = (self.arrangement[index1].y0 as i32) + dy;
+
+                if new_y >= 0 {
+                    self.arrangement[index1].y0 = new_y as u32;
+                    self.arrangement[index1].y1 = ((self.arrangement[index1].y1 as i32) + dy) as u32;
                 }
             },
             3 => {
                 // Rotate
-                self.arrangement[index1].angle = self.arrangement[index1].angle + (rng.next_f32() * 2.0 * PI);
+                self.arrangement[index1].angle = self.arrangement[index1].angle + (rng.next_f64() * 0.1);
+                if self.arrangement[index1].angle < 0.0 {
+                    self.arrangement[index1].angle = 0.0;
+                } else if self.arrangement[index1].angle > 2.0 * PI {
+                    self.arrangement[index1].angle = 0.0;
+                }
             },
             op => {
                 warn!("mutate(): unknown operation: {}", op)
@@ -115,22 +164,48 @@ impl Individual for Solution {
     fn calculate_fitness(&mut self) -> f64 {
         let mut fitness = 0.0;
 
+        let num_of_samples = self.arrangement[0].samples;
+
+        let (cx0, cy0, cx1, cy1) = calc_canvas_size(&self.arrangement);
+
+        // Create sample points on canvas:
+        let mut rng = rand::thread_rng();
+        let mut sample_pixels = Vec::new();
+
+        for _ in 0..num_of_samples {
+            sample_pixels.push(SamplePixel{
+                x: rng.gen_range::<u32>(cx0, cx1),
+                y: rng.gen_range::<u32>(cy0, cy1),
+                pixels: Vec::new()
+            });
+        }
+
+        for im_ar in &self.arrangement {
+            if let Ok(img) = image::open(&im_ar.file_name) {
+                for sp in &mut sample_pixels {
+                    if let Some(pixel) = get_pixel(sp.x as f64, sp.y as f64, &im_ar, &img) {
+                        sp.pixels.push(pixel);
+                    }
+                }
+            }
+        }
+
         fitness
     }
 
     fn reset(&mut self) {
         for arrangement in &mut self.arrangement {
             // Reset all image operation to original image
-            arrangement.x = 0;
-            arrangement.y = 0;
+            arrangement.x1 = arrangement.x1 - arrangement.x0;
+            arrangement.y1 = arrangement.y1 - arrangement.y0;
+            arrangement.x0 = 0;
+            arrangement.y0 = 0;
             arrangement.angle = 0.0;
         }
     }
 }
 
 fn run_darwin(solution: &Solution, config: &PanolutionConfig) -> Solution {
-    info!("Run darwin with maximum number of iterations: {}", config.max_iteration);
-
     let pano = SimulationBuilder::<Solution>::new()
         .iterations(config.max_iteration)
         .threads(config.num_of_threads)
@@ -159,7 +234,7 @@ fn run_darwin(solution: &Solution, config: &PanolutionConfig) -> Solution {
     }
 }
 
-pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig) -> Solution {
+pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig, sample_index: usize) -> Solution {
     match solution {
         None => {
             let mut arrangement = Vec::new();
@@ -169,30 +244,56 @@ pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig) -> Solut
                     if entry.file_type().is_file() {
                         if let Some(file_name) = entry.file_name().to_str() {
                             if valid_image_file(file_name) {
-                                arrangement.push(ImageArrangement{
-                                    file_name: entry.path().to_str().unwrap().to_string(),
-                                    x: 0,
-                                    y: 0,
-                                    angle: 0.0,
-                                });
+                                if let Some(full_path) = entry.path().to_str() {
+
+                                    if let Ok(img) = image::open(&full_path) {
+                                        arrangement.push(ImageArrangement{
+                                            file_name: full_path.to_string(),
+                                            samples: config.num_of_samples[sample_index],
+                                            x0: 0,
+                                            y0: 0,
+                                            x1: img.width(),
+                                            y1: img.height(),
+                                            angle: 0.0,
+                                        });
+                                    } else {
+                                        error!("Could not open image: {}", full_path)
+                                    }
+                                } else {
+                                    error!("Could not convert full path to str: {:?}", entry);
+                                }
                             } else {
-                                info!("Image format currently not supported: {}", file_name);
+                                error!("Image format currently not supported: {}", file_name);
                             }
                         } else {
-                            info!("Could not convert file name to str: {:?}", entry);
+                            error!("Could not convert file name to str: {:?}", entry);
                         }
                     } else {
                         info!("Ignore non-file: {:?}", entry);
                     }
                 } else {
-                    info!("Error in WalkDir");
+                    error!("Error in WalkDir");
                 }
             }
 
-            run_darwin(&Solution{arrangement: arrangement}, &config)
+            let solution = Solution{arrangement: arrangement};
+
+            if solution.arrangement.len() > 0 {
+                run_darwin(&solution, &config)
+            } else {
+                // An error occured
+                // TODO: return Result<Soultion> and use chain_err
+                solution
+            }
         },
         Some(solution) => {
-            run_darwin(solution, &config)
+            let mut updated_arrangement = solution.arrangement.clone();
+
+            for im_ar in &mut updated_arrangement {
+                im_ar.samples = config.num_of_samples[sample_index];
+            }
+
+            run_darwin(&Solution{arrangement: updated_arrangement}, &config)
         }
     }
 }
