@@ -69,13 +69,13 @@ fn get_pixel(cx: f64, cy: f64, im_ar: &ImageArrangement, img: &DynamicImage) -> 
     let ry = (-ox * sin_a) + (oy * cos_a);
 
     // Move back to image coordinate system
-    let imx = (rx + mx) as u32;
-    let imy = (ry + my) as u32;
+    let imx = ((rx + mx) as u32) - im_ar.x0;
+    let imy = ((ry + my) as u32) - im_ar.y0;
 
     // Check if point is inside the image:
 
-    if (imx >= im_ar.x0) && (imx <= im_ar.x1) && (imy >= im_ar.y0) && (imy <= im_ar.y1) {
-        let pixel = img.get_pixel(imx - im_ar.x0, imy - im_ar.y0) as Rgba<u8>;
+    if (imx >= 0) && (imx < img.width()) && (imy >= 0) && (imy < img.height()) {
+        let pixel = img.get_pixel(imx, imy) as Rgba<u8>;
         return Some((pixel.data[0], pixel.data[1], pixel.data[2]));
     }
 
