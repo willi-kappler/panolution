@@ -10,14 +10,14 @@ use walkdir::{WalkDir};
 // use std::path::Path;
 use std::f64::consts::PI;
 use std::cmp;
+use std::sync::Arc;
 
 // Internal modules:
 use config::PanolutionConfig;
 
 #[derive(Clone)]
 pub struct ImageArrangement {
-    pub file_name: String, // TODO: Share path between individuals
-    // TODO: Add image and share it, so it doesn't have to be re-loaded every time
+    pub image: Arc<DynamicImage>,
     pub samples: u32,
     pub x0: u32,
     pub y0: u32,
@@ -52,7 +52,7 @@ fn calc_canvas_size(arrangement: &Vec<ImageArrangement>) -> (u32, u32, u32, u32)
     })
 }
 
-fn get_pixel(cx: f64, cy: f64, im_ar: &ImageArrangement, img: &DynamicImage) -> Option<(u8, u8, u8)> {
+fn get_pixel(cx: f64, cy: f64, im_ar: &ImageArrangement) -> Option<(u8, u8, u8)> {
     // Center of image
     let mx = ((im_ar.x0 + im_ar.x1) / 2) as f64;
     let my = ((im_ar.y0 + im_ar.y1) / 2) as f64;
@@ -74,8 +74,8 @@ fn get_pixel(cx: f64, cy: f64, im_ar: &ImageArrangement, img: &DynamicImage) -> 
 
     // Check if point is inside the image:
 
-    if (imx >= 0) && (imx < img.width()) && (imy >= 0) && (imy < img.height()) {
-        let pixel = img.get_pixel(imx, imy) as Rgba<u8>;
+    if (imx >= 0) && (imx < im_ar.image.width()) && (imy >= 0) && (imy < im_ar.image.height()) {
+        let pixel = im_ar.image.get_pixel(imx, imy) as Rgba<u8>;
         return Some((pixel.data[0], pixel.data[1], pixel.data[2]));
     }
 
@@ -124,7 +124,14 @@ impl Individual for Solution {
                     index2 = rng.gen_range(0, self.arrangement.len());
                 }
 
-                self.arrangement.swap(index1, index2);
+                let px = self.arrangement[index1].x;
+                let py = self.arrangement[index1].y;
+
+                self.arrangement[index1].x = self.arrangement[index2].x;
+                self.arrangement[index1].y = self.arrangement[index2].y;
+
+                self.arrangement[index2].x = px;
+                self.arrangement[index2].y = py;
             },
             1 => {
                 // Move x
@@ -162,8 +169,6 @@ impl Individual for Solution {
     }
 
     fn calculate_fitness(&mut self) -> f64 {
-        let mut fitness = 0.0;
-
         let num_of_samples = self.arrangement[0].samples;
 
         let (cx0, cy0, cx1, cy1) = calc_canvas_size(&self.arrangement);
@@ -181,16 +186,33 @@ impl Individual for Solution {
         }
 
         for im_ar in &self.arrangement {
-            if let Ok(img) = image::open(&im_ar.file_name) {
-                for sp in &mut sample_pixels {
-                    if let Some(pixel) = get_pixel(sp.x as f64, sp.y as f64, &im_ar, &img) {
-                        sp.pixels.push(pixel);
-                    }
+            for sp in &mut sample_pixels {
+                if let Some(pixel) = get_pixel(sp.x as f64, sp.y as f64, &im_ar) {
+                    sp.pixels.push(pixel);
                 }
             }
         }
 
-        fitness
+        let error_sum = sample_pixels.iter().fold(0, |sum, sp| {
+            if sp.pixels.len() > 0 {
+                let r0 = sp.pixels[0].0;
+                let g0 = sp.pixels[0].1;
+                let b0 = sp.pixels[0].2;
+                let max_diff = sp.pixels.iter().fold((0, r0, g0, b0), |(diff, r1, g1, b1), &(r2, g2, b2)| {
+                    let rdiff = if r1 > r2 {r1 - r2} else {r2 - r1};
+                    let gdiff = if g1 > g2 {g1 - g2} else {g2 - g1};
+                    let bdiff = if b1 > b2 {b1 - b2} else {b2 - b1};
+
+                    (cmp::max(diff, rdiff + gdiff + bdiff), r2, g2, b2)
+                });
+                sum + max_diff.0
+            } else {
+                sum
+            }
+
+        });
+
+        (error_sum as f64) / (num_of_samples as f64)
     }
 
     fn reset(&mut self) {
@@ -208,8 +230,8 @@ impl Individual for Solution {
 fn run_darwin(solution: &Solution, config: &PanolutionConfig) -> Solution {
     let pano = SimulationBuilder::<Solution>::new()
         .iterations(config.max_iteration)
-        .threads(config.num_of_threads)
-        .add_multiple_populations(make_all_populations(10, 8, &solution))
+        .threads(4)
+        .add_multiple_populations(make_all_populations(20, 8, &solution))
         .finalize();
 
     match pano {
@@ -248,7 +270,7 @@ pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig, sample_i
 
                                     if let Ok(img) = image::open(&full_path) {
                                         arrangement.push(ImageArrangement{
-                                            file_name: full_path.to_string(),
+                                            image: Arc::new(img.clone()),
                                             samples: config.num_of_samples[sample_index],
                                             x0: 0,
                                             y0: 0,

@@ -38,9 +38,9 @@ struct TOMLConfig {
 fn default_config() -> PanolutionConfig {
     PanolutionConfig {
         input_path: "./".to_string(),
-        max_iteration: 1000,
+        max_iteration: 10000,
         num_of_threads: 4,
-        num_of_samples: vec![100, 500, 1000],
+        num_of_samples: vec![500, 2000, 5000],
     }
 }
 
