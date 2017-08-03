@@ -1,26 +1,39 @@
 // External modules:
 use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
 use image;
-use image::{GenericImage, FilterType, DynamicImage, imageops};
+// use image::{GenericImage, FilterType, DynamicImage, imageops};
 use rand::Rng;
 use rand;
-use imageproc::{stats, affine};
+use walkdir::{WalkDir};
+
 
 // Std modules:
 use std::cmp;
 use std::path::Path;
+use std::f32::consts::PI;
 
 // Internal modules:
 use config::PanolutionConfig;
 
+
+
+fn valid_image_file(file_name: &str) -> bool {
+    let extension = file_name.split(".").last().unwrap_or("").to_lowercase();
+
+    let supported: Vec<String> = vec!["jpg", "jpeg", "gif", "png", "tif", "tiff"].iter().map(|s| s.to_string()).collect();
+
+    supported.contains(&extension)
+}
+
+
+
+
 #[derive(Clone)]
 pub struct ImageArrangement {
     pub file_name: String, // TODO: Share path between individuals
-    pub w: u32,
-    pub h: u32,
     // TODO: Add image and share it, so it doesn't have to be re-loaded every time
-    pub x: f64,
-    pub y: f64,
+    pub x: u32,
+    pub y: u32,
     pub angle: f32,
     // TODO: add more image operations
 }
@@ -30,94 +43,6 @@ pub struct Solution {
     pub arrangement: Vec<ImageArrangement>,
 }
 
-impl Solution {
-    pub fn update_path_from(&mut self, solution: &Solution) {
-        for (new, old) in self.arrangement.iter_mut().zip(&solution.arrangement) {
-            new.file_name = old.file_name.clone();
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, Debug)]
-struct Rectangle {
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
-}
-
-fn calc_extension(solution: &Solution) -> (u32, u32) {
-    solution.arrangement.iter().fold(
-        (0, 0), |(total_w, total_h), elem| {
-            (cmp::max(total_w, elem.w), cmp::max(total_h, elem.h))
-        }
-    )
-}
-
-fn calc_intersection(x1: u32, x2: u32, y1: u32, y2: u32, w1: u32, w2: u32, h1: u32, h2: u32) -> (Rectangle, Rectangle) {
-    // rect1 and rect2 refer to positions inside the images. Not the absolute positions.
-    let mut rect1 = Rectangle{x: 0, y: 0, w: 0, h: 0};
-    let mut rect2 = Rectangle{x: 0, y: 0, w: 0, h: 0};
-
-    if x1 == x2 {
-        rect1.x = 0;
-        rect2.x = 0;
-
-        if w1 < w2 {
-            rect1.w = w1;
-            rect2.w = w1;
-        } else {
-            rect1.w = w2;
-            rect2.w = w2;
-        }
-    }
-
-    if y1 == y2 {
-        rect1.y = 0;
-        rect2.y = 0;
-
-        if h1 < h2 {
-            rect1.h = h1;
-            rect2.h = h1;
-        } else {
-            rect1.h = h2;
-            rect2.h = h2;
-        }
-    }
-
-    let dx = (x2 as i32 - x1 as i32).abs() as u32;
-    let dy = (y2 as i32 - y1 as i32).abs() as u32;
-
-    if x1 < x2 && dx < w1 {
-        rect1.x = dx;
-        rect1.w = cmp::min(w1 - dx, w2);
-        rect2.x = 0;
-        rect2.w = rect1.w;
-    }
-
-    if x2 < x1 && dx < w2 {
-        rect2.x = dx;
-        rect2.w = cmp::min(w2 - dx, w1);
-        rect1.x = 0;
-        rect1.w = rect2.w;
-    }
-
-    if y1 < y2 && dy < h1 {
-        rect1.y = dy;
-        rect1.h = cmp::min(h1 - dy, h2);
-        rect2.y = 0;
-        rect2.h = rect1.h;
-    }
-
-    if y2 < y1 && dy < h2 {
-        rect2.y = dy;
-        rect2.h = cmp::min(h2 - dy, h1);
-        rect1.y = 0;
-        rect1.h = rect2.h;
-    }
-
-    (rect1, rect2)
-}
 
 fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initial_solution: &Solution) -> Vec<Population<Solution>> {
     let mut result = Vec::new();
@@ -145,13 +70,12 @@ fn make_all_populations(num_of_individuals: u32, num_of_populations: u32, initia
 impl Individual for Solution {
     fn mutate(&mut self) {
         let mut rng = rand::thread_rng();
-        let num_of_operations: u8 = 7;
+        let num_of_operations: u8 = 4;
 
         let index1: usize = rng.gen_range(0, self.arrangement.len());
 
-        // Probably use this create and enums:
+        // Probably use this create and enums for operation:
         // https://github.com/andersk/enum_primitive-rs
-
         let operation: u8 = rng.gen_range(0, num_of_operations);
 
         match operation {
@@ -165,48 +89,22 @@ impl Individual for Solution {
                 self.arrangement.swap(index1, index2);
             },
             1 => {
-                // Move x, small step
-                self.arrangement[index1].x = self.arrangement[index1].x + ((rng.next_f64() - 0.5) * 0.1);
-                if self.arrangement[index1].x < 0.0 {
-                    self.arrangement[index1].x = 0.0;
-                } else if self.arrangement[index1].x > 1.0 {
-                    self.arrangement[index1].x = 1.0;
+                // Move x
+                self.arrangement[index1].x = self.arrangement[index1].x + rng.gen_range(0, 500) - 250;
+                if self.arrangement[index1].x < 0 {
+                    self.arrangement[index1].x = 0;
                 }
             },
             2 => {
-                // Move x, big step
-                self.arrangement[index1].x = self.arrangement[index1].x + rng.next_f64() - 0.5;
-                if self.arrangement[index1].x < 0.0 {
-                    self.arrangement[index1].x = 0.0;
-                } else if self.arrangement[index1].x > 1.0 {
-                    self.arrangement[index1].x = 1.0;
+                // Move y
+                self.arrangement[index1].y = self.arrangement[index1].y + rng.gen_range(0, 500) - 250;
+                if self.arrangement[index1].y < 0 {
+                    self.arrangement[index1].y = 0;
                 }
             },
             3 => {
-                // Move y, small step
-                self.arrangement[index1].y = self.arrangement[index1].y + ((rng.next_f64() - 0.5) * 0.1);
-                if self.arrangement[index1].y < 0.0 {
-                    self.arrangement[index1].y = 0.0;
-                } else if self.arrangement[index1].y > 1.0 {
-                    self.arrangement[index1].y = 1.0;
-                }
-            },
-            4 => {
-                // Move y, big step
-                self.arrangement[index1].y = self.arrangement[index1].y + rng.next_f64() - 0.5;
-                if self.arrangement[index1].y < 0.0 {
-                    self.arrangement[index1].y = 0.0;
-                } else if self.arrangement[index1].y > 1.0 {
-                    self.arrangement[index1].y = 1.0;
-                }
-            },
-            5 => {
-                // Rotate, small step
-                self.arrangement[index1].angle = self.arrangement[index1].angle + ((rng.next_f32() - 0.5) * 0.1);
-            },
-            6 => {
-                // Rotate, big step
-                self.arrangement[index1].angle = self.arrangement[index1].angle + (rng.next_f32() - 0.5);
+                // Rotate
+                self.arrangement[index1].angle = self.arrangement[index1].angle + (rng.next_f32() * 2.0 * PI);
             },
             op => {
                 warn!("mutate(): unknown operation: {}", op)
@@ -217,67 +115,25 @@ impl Individual for Solution {
     fn calculate_fitness(&mut self) -> f64 {
         let mut fitness = 0.0;
 
-        // The total width and height of the panorama image with the current image sizes
-        // TODO: This needs to be calculated only once, move to thumbnail.rs
-        let total_width = (2 * self.arrangement.iter().fold(0, |tw, elem| tw + elem.w )) as f64;
-        let total_height = (2 * self.arrangement.iter().fold(0, |th, elem| th + elem.h )) as f64;
-
-        for i in 0..(self.arrangement.len() - 1) {
-            let arrangement1 = &self.arrangement[i];
-            let arrangement2 = &self.arrangement[i + 1];
-
-            let image1 = image::open(&arrangement1.file_name).unwrap();
-            let image2 = image::open(&arrangement2.file_name).unwrap();
-
-            let mut image1 = affine::rotate_about_center(image1.as_rgb8().unwrap(), arrangement1.angle, affine::Interpolation::Nearest);
-            let mut image2 = affine::rotate_about_center(image2.as_rgb8().unwrap(), arrangement1.angle, affine::Interpolation::Nearest);
-
-            let w1 = image1.width();
-            let w2 = image2.width();
-            let h1 = image1.height();
-            let h2 = image2.height();
-
-            let area_max = cmp::max(w1 * h1, w2 * h2) as f64;
-
-            let (rect1, rect2) = calc_intersection(
-                (arrangement1.x * total_width) as u32,
-                (arrangement2.x * total_width) as u32,
-                (arrangement1.y * total_height) as u32,
-                (arrangement2.y * total_height) as u32,
-                w1, w2, h1, h2
-            );
-
-            if rect1.w == 0 || rect1.h == 0 {
-                // Images don't intersect, add penalty for this individual
-                fitness = fitness + area_max;
-            } else {
-                let intersection_area = rect1.w * rect1.h;
-                let sub_image1 = imageops::crop(&mut image1, rect1.x, rect1.y, rect1.w, rect1.h);
-                let sub_image2 = imageops::crop(&mut image2, rect2.x, rect2.y, rect2.w, rect2.h);
-
-                fitness = fitness + (area_max * stats::root_mean_squared_error(&sub_image1, &sub_image2) / intersection_area as f64);
-            }
-        }
-
         fitness
     }
 
     fn reset(&mut self) {
         for arrangement in &mut self.arrangement {
             // Reset all image operation to original image
-            arrangement.x = 0.0;
-            arrangement.y = 0.0;
+            arrangement.x = 0;
+            arrangement.y = 0;
             arrangement.angle = 0.0;
         }
     }
 }
 
-fn run_darwin(solution: &Solution, max_iteration: u32) -> Solution {
-    info!("Run darwin with maximum number of iterations: {}", max_iteration);
+fn run_darwin(solution: &Solution, config: &PanolutionConfig) -> Solution {
+    info!("Run darwin with maximum number of iterations: {}", config.max_iteration);
 
     let pano = SimulationBuilder::<Solution>::new()
-        .iterations(max_iteration)
-        .threads(4) // TODO: Make this configurable
+        .iterations(config.max_iteration)
+        .threads(config.num_of_threads)
         .add_multiple_populations(make_all_populations(10, 8, &solution))
         .finalize();
 
@@ -303,132 +159,40 @@ fn run_darwin(solution: &Solution, max_iteration: u32) -> Solution {
     }
 }
 
-pub fn optimize(solution: &Solution, config: &PanolutionConfig) -> Solution {
-    run_darwin(solution, config.max_iteration)
-}
+pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig) -> Solution {
+    match solution {
+        None => {
+            let mut arrangement = Vec::new();
 
-#[cfg(test)]
-mod test {
-    use super::{calc_intersection, Rectangle};
+            for entry in WalkDir::new(&config.input_path) {
+                if let Ok(entry) = entry {
+                    if entry.file_type().is_file() {
+                        if let Some(file_name) = entry.file_name().to_str() {
+                            if valid_image_file(file_name) {
+                                arrangement.push(ImageArrangement{
+                                    file_name: entry.path().to_str().unwrap().to_string(),
+                                    x: 0,
+                                    y: 0,
+                                    angle: 0.0,
+                                });
+                            } else {
+                                info!("Image format currently not supported: {}", file_name);
+                            }
+                        } else {
+                            info!("Could not convert file name to str: {:?}", entry);
+                        }
+                    } else {
+                        info!("Ignore non-file: {:?}", entry);
+                    }
+                } else {
+                    info!("Error in WalkDir");
+                }
+            }
 
-    #[test]
-    fn calc_intersection1() {
-        let (r1, r2) = calc_intersection(0, 0, 0, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 20});
+            run_darwin(&Solution{arrangement: arrangement}, &config)
+        },
+        Some(solution) => {
+            run_darwin(solution, &config)
+        }
     }
-
-    #[test]
-    fn calc_intersection2() {
-        let (r1, r2) = calc_intersection(0, 0, 0, 0, 15, 10, 25, 20);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection3() {
-        let (r1, r2) = calc_intersection(50, 0, 0, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 20});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection4() {
-        let (r1, r2) = calc_intersection(0, 50, 0, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 20});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection5() {
-        let (r1, r2) = calc_intersection(0, 0, 50, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 0});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 0});
-    }
-
-    #[test]
-    fn calc_intersection6() {
-        let (r1, r2) = calc_intersection(0, 0, 0, 50, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 0});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 0});
-    }
-
-    #[test]
-    fn calc_intersection7() {
-        let (r1, r2) = calc_intersection(50, 0, 50, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 0});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 0});
-    }
-
-    #[test]
-    fn calc_intersection8() {
-        let (r1, r2) = calc_intersection(0, 50, 0, 50, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 0, h: 0});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 0, h: 0});
-    }
-
-    #[test]
-    fn calc_intersection9() {
-        let (r1, r2) = calc_intersection(3, 0, 0, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
-        assert_eq!(r2, Rectangle{x: 3, y: 0, w: 10, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection10() {
-        let (r1, r2) = calc_intersection(7, 0, 0, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 8, h: 20});
-        assert_eq!(r2, Rectangle{x: 7, y: 0, w: 8, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection11() {
-        let (r1, r2) = calc_intersection(0, 8, 0, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 8, y: 0, w: 2, h: 20});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 2, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection12() {
-        let (r1, r2) = calc_intersection(0, 0, 4, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 20});
-        assert_eq!(r2, Rectangle{x: 0, y: 4, w: 10, h: 20});
-    }
-
-    #[test]
-    fn calc_intersection13() {
-        let (r1, r2) = calc_intersection(0, 0, 9, 0, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 0, w: 10, h: 16});
-        assert_eq!(r2, Rectangle{x: 0, y: 9, w: 10, h: 16});
-    }
-
-    #[test]
-    fn calc_intersection14() {
-        let (r1, r2) = calc_intersection(0, 0, 0, 12, 10, 15, 20, 25);
-
-        assert_eq!(r1, Rectangle{x: 0, y: 12, w: 10, h: 8});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 10, h: 8});
-    }
-
-    #[test]
-    fn calc_intersection15() {
-        let (r1, r2) = calc_intersection(0, 8, 0, 9, 10, 10, 10, 10);
-
-        assert_eq!(r1, Rectangle{x: 8, y: 9, w: 2, h: 1});
-        assert_eq!(r2, Rectangle{x: 0, y: 0, w: 2, h: 1});
-    }
-
 }

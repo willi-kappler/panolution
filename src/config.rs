@@ -23,21 +23,24 @@ macro_rules! assign_if{
 pub struct PanolutionConfig {
     pub input_path: String,
     pub max_iteration: u32,
-    pub scale_factors: Vec<f64>,
+    pub num_of_threads: usize,
+    pub num_of_samples: Vec<u32>,
 }
 
 #[derive(Deserialize)]
 struct TOMLConfig {
     input_path: Option<String>,
     max_iteration: Option<u32>,
-    scale_factors: Option<Vec<f64>>,
+    num_of_threads: Option<usize>,
+    num_of_samples: Option<Vec<u32>>,
 }
 
 fn default_config() -> PanolutionConfig {
     PanolutionConfig {
         input_path: "./".to_string(),
         max_iteration: 1000,
-        scale_factors: vec![0.1, 0.3, 1.0],
+        num_of_threads: 4,
+        num_of_samples: vec![1000, 5000, 10000],
     }
 }
 
@@ -57,12 +60,6 @@ pub fn create_config() -> PanolutionConfig {
             .long("max-iteration")
             .value_name("MAX_ITERATION")
             .help("Sets the maximum number of iteration for each size step")
-            .takes_value(true))
-        .arg(Arg::with_name("scale_factors")
-            .short("s")
-            .long("scale-factors")
-            .value_name("SCALE_FACTORS")
-            .help("Sets the scale factor to use for arranging images")
             .takes_value(true))
         .arg(Arg::with_name("input")
             .help("Sets the input file or folder, default is current folder './'")
@@ -106,7 +103,6 @@ fn process_config(matches: ArgMatches) -> Result<PanolutionConfig> {
 
         assign_if!(result.input_path, toml_config.input_path);
         assign_if!(result.max_iteration, toml_config.max_iteration);
-        assign_if!(result.scale_factors, toml_config.scale_factors);
     }
 
     // Command line parameter can overwrite PanolutionConfig file settings:
@@ -118,18 +114,6 @@ fn process_config(matches: ArgMatches) -> Result<PanolutionConfig> {
     if let Some(max_iteration) = matches.value_of("max_iteration") {
         result.max_iteration = max_iteration.parse::<u32>().chain_err(|| format!("can't parse command line integer value: '{}'", max_iteration))?;
     }
-
-    if let Some(scale_factors) = matches.value_of("scale_factors") {
-        let mut values = Vec::new();
-
-        for value in scale_factors.split(",") {
-            values.push(value.parse::<f64>().chain_err(|| format!("can't parse command line floating point values: '{}' -> '{}", scale_factors, value))?);
-        }
-        result.scale_factors = values;
-    }
-
-    result.scale_factors.retain(|&factor| factor > 0.0 && factor < 1.0 );
-    result.scale_factors.push(1.0);
 
     Ok(result)
 }
