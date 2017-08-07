@@ -18,6 +18,7 @@ use config::PanolutionConfig;
 #[derive(Clone)]
 pub struct ImageArrangement {
     pub image: Arc<DynamicImage>,
+    pub full_path: String,
     pub samples: u32,
     pub x0: u32,
     pub y0: u32,
@@ -213,7 +214,8 @@ impl Individual for Solution {
                 });
                 sum + max_diff.0
             } else {
-                sum
+                // Add penalty if the images do not overlap
+                sum + 255
             }
 
         });
@@ -237,6 +239,7 @@ fn run_darwin(solution: &Solution, config: &PanolutionConfig) -> Solution {
     let pano = SimulationBuilder::<Solution>::new()
         .iterations(config.max_iteration)
         .threads(4)
+        .output_every(0)
         .add_multiple_populations(make_all_populations(20, 8, &solution))
         .finalize();
 
@@ -278,6 +281,7 @@ pub fn optimize(solution: Option<&Solution>, config: &PanolutionConfig, sample_i
                                     if let Ok(img) = image::open(&full_path) {
                                         arrangement.push(ImageArrangement{
                                             image: Arc::new(img.clone()),
+                                            full_path: full_path.to_string(),
                                             samples: config.num_of_samples[sample_index],
                                             x0: 0,
                                             y0: 0,
