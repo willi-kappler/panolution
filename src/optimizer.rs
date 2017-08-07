@@ -204,12 +204,12 @@ impl Individual for Solution {
                 let r0 = sp.pixels[0].0;
                 let g0 = sp.pixels[0].1;
                 let b0 = sp.pixels[0].2;
-                let max_diff = sp.pixels.iter().fold((0, r0, g0, b0), |(diff, r1, g1, b1), &(r2, g2, b2)| {
+                let max_diff = sp.pixels.iter().fold((0_u32, r0, g0, b0), |(diff, r1, g1, b1), &(r2, g2, b2)| {
                     let rdiff = if r1 > r2 {r1 - r2} else {r2 - r1};
-                    let gdiff = if g1 > g2 {g1 - g2} else {g2 - g1};
-                    let bdiff = if b1 > b2 {b1 - b2} else {b2 - b1};
+                    let gdiff  = if g1 > g2 {g1 - g2} else {g2 - g1};
+                    let bdiff  = if b1 > b2 {b1 - b2} else {b2 - b1};
 
-                    (cmp::max(diff, rdiff + gdiff + bdiff), r2, g2, b2)
+                    (cmp::max(diff, (rdiff as u32) + (gdiff as u32) + (bdiff as u32)), r2, g2, b2)
                 });
                 sum + max_diff.0
             } else {
