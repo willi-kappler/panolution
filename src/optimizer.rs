@@ -199,7 +199,7 @@ impl Individual for Solution {
             }
         }
 
-        let error_sum = sample_pixels.iter().fold(0, |sum, sp| {
+        let error_sum = sample_pixels.iter().fold(0_u32, |sum, sp| {
             if sp.pixels.len() > 0 {
                 let r0 = sp.pixels[0].0;
                 let g0 = sp.pixels[0].1;
