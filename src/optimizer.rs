@@ -201,7 +201,15 @@ impl Individual for Solution {
         }
 
         let error_sum = sample_pixels.iter().fold(0_u32, |sum, sp| {
-            if sp.pixels.len() > 0 {
+            let num_of_pixels = sp.pixels.len();
+
+            if num_of_pixels == 0 {
+                // No pixel at all, random sample is outside of any image
+                sum
+            } else if num_of_pixels == 1 {
+                // No overlap, add penalty
+                sum + 255
+            } else {
                 let r0 = sp.pixels[0].0;
                 let g0 = sp.pixels[0].1;
                 let b0 = sp.pixels[0].2;
@@ -213,9 +221,6 @@ impl Individual for Solution {
                     (cmp::max(diff, (rdiff as u32) + (gdiff as u32) + (bdiff as u32)), r2, g2, b2)
                 });
                 sum + max_diff.0
-            } else {
-                // Add penalty if the images do not overlap
-                sum + 255
             }
 
         });
