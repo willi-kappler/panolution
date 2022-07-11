@@ -31,8 +31,8 @@ pub struct PanolutionConfig {
 struct TOMLConfig {
     input_path: Option<String>,
     max_iteration: Option<u32>,
-    num_of_threads: Option<usize>,
-    num_of_samples: Option<Vec<u32>>,
+    _num_of_threads: Option<usize>,
+    _num_of_samples: Option<Vec<u32>>,
 }
 
 fn default_config() -> PanolutionConfig {

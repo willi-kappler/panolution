@@ -8,6 +8,6 @@
 use optimizer::Solution;
 use config::PanolutionConfig;
 
-pub fn write_image(solution: &Solution, config: &PanolutionConfig) {
+pub fn write_image(_solution: &Solution, _config: &PanolutionConfig) {
 
 }

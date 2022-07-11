@@ -2,7 +2,7 @@
 use darwin_rs::{Individual, SimulationBuilder, Population, PopulationBuilder};
 use image;
 // use image::{GenericImage, FilterType, DynamicImage, imageops};
-use image::{GenericImage, DynamicImage, Rgba};
+use image::{GenericImageView, DynamicImage, Rgba};
 use rand::Rng;
 use rand;
 use walkdir::{WalkDir};
@@ -70,14 +70,19 @@ fn get_pixel(cx: f64, cy: f64, im_ar: &ImageArrangement) -> Option<(u8, u8, u8)>
     let ry = (-ox * sin_a) + (oy * cos_a);
 
     // Move back to image coordinate system
-    let imx = ((rx + mx) as u32) - im_ar.x0;
-    let imy = ((ry + my) as u32) - im_ar.y0;
+    let imx = ((rx + mx) as i32) - (im_ar.x0 as i32);
+    let imy = ((ry + my) as i32) - (im_ar.y0 as i32);
+
+    let width = im_ar.image.width() as i32;
+    let height = im_ar.image.height() as i32;
 
     // Check if point is inside the image:
 
-    if (imx >= 0) && (imx < im_ar.image.width()) && (imy >= 0) && (imy < im_ar.image.height()) {
-        let pixel = im_ar.image.get_pixel(imx, imy) as Rgba<u8>;
-        return Some((pixel.data[0], pixel.data[1], pixel.data[2]));
+    if (imx >= 0) && (imx < width) && (imy >= 0) && (imy < height) {
+        let x = imx as u32;
+        let y = imy as u32;
+        let pixel = im_ar.image.get_pixel(x, y) as Rgba<u8>;
+        return Some((pixel.0[0], pixel.0[1], pixel.0[2]));
     }
 
     None
